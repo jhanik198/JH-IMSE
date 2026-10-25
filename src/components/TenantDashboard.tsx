@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { 
   Tenant, Product, Sale, Customer, Employee, OnlineOrder, Warehouse, AIInsight, 
-  StockAdjustment, Quotation, DeliveryChallan, CreditNote 
+  StockAdjustment, Quotation, DeliveryChallan, CreditNote, CustomerPaymentReceipt, LoyaltyTier, CustomerType,
+  AttendanceRecord, RolePermission, SalarySlip 
 } from '../types';
 import { BarcodeGeneratorModal } from './BarcodeGeneratorModal';
 import { BulkImportModal } from './BulkImportModal';
@@ -19,6 +20,12 @@ import { StockAdjustmentModal } from './StockAdjustmentModal';
 import { QuotationModal } from './QuotationModal';
 import { DeliveryChallanModal } from './DeliveryChallanModal';
 import { CreditNoteModal } from './CreditNoteModal';
+import { CustomerLedgerModal } from './CustomerLedgerModal';
+import { ReceivePaymentModal } from './ReceivePaymentModal';
+import { SmsReminderModal } from './SmsReminderModal';
+import { AddCustomerModal } from './AddCustomerModal';
+import { PaymentReceiptModal } from './PaymentReceiptModal';
+import { HRMManager } from './hrm/HRMManager';
 
 interface TenantDashboardProps {
   tenant: Tenant;
@@ -41,11 +48,14 @@ interface TenantDashboardProps {
   onBulkImportProducts?: (prods: Omit<Product, 'id'>[]) => void;
   onAdjustStock?: (productId: string, newStock: number, record: StockAdjustment) => void;
   onDeleteProduct?: (productId: string) => void;
-  onSmsCustomerDue: (customer: Customer) => void;
+  onSmsCustomerDue: (customer: Customer, message?: string) => void;
   onUpdateOrderStatus: (orderId: string, status: OnlineOrder['status']) => void;
   quotations?: Quotation[];
   deliveryChallans?: DeliveryChallan[];
   creditNotes?: CreditNote[];
+  paymentReceipts?: CustomerPaymentReceipt[];
+  onAddCustomer?: (customerData: Omit<Customer, 'id'>, existingId?: string) => void;
+  onReceivePayment?: (receipt: CustomerPaymentReceipt) => void;
   onCreateQuotation?: (quote: Omit<Quotation, 'id'>) => void;
   onCreateDeliveryChallan?: (challan: Omit<DeliveryChallan, 'id'>) => void;
   onCreateCreditNote?: (cn: Omit<CreditNote, 'id'>, restockItems: { productId: string; quantity: number }[]) => void;
@@ -53,6 +63,16 @@ interface TenantDashboardProps {
   onOpenReceipt?: (sale: Sale) => void;
   onOpenA4Invoice?: (sale: Sale) => void;
   systemBroadcast?: string;
+  attendanceRecords?: AttendanceRecord[];
+  rolePermissions?: RolePermission[];
+  salarySlips?: SalarySlip[];
+  onSaveEmployee?: (employeeData: Omit<Employee, 'id'>, existingId?: string) => void;
+  onDeleteEmployee?: (employeeId: string) => void;
+  onUpdateAttendanceRecord?: (record: AttendanceRecord) => void;
+  onBulkMarkAttendance?: (records: AttendanceRecord[]) => void;
+  onUpdateRolePermissions?: (roles: RolePermission[]) => void;
+  onAddSalarySlip?: (slip: SalarySlip) => void;
+  onUpdateSlipStatus?: (slipId: string, status: 'paid' | 'pending', method?: 'cash' | 'bkash' | 'bank') => void;
 }
 
 export const TenantDashboard: React.FC<TenantDashboardProps> = ({
@@ -81,6 +101,9 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   quotations = [],
   deliveryChallans = [],
   creditNotes = [],
+  paymentReceipts = [],
+  onAddCustomer,
+  onReceivePayment,
   onCreateQuotation,
   onCreateDeliveryChallan,
   onCreateCreditNote,
@@ -88,6 +111,16 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   onOpenReceipt,
   onOpenA4Invoice,
   systemBroadcast,
+  attendanceRecords = [],
+  rolePermissions = [],
+  salarySlips = [],
+  onSaveEmployee,
+  onDeleteEmployee,
+  onUpdateAttendanceRecord,
+  onBulkMarkAttendance,
+  onUpdateRolePermissions,
+  onAddSalarySlip,
+  onUpdateSlipStatus,
 }) => {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<
@@ -113,6 +146,23 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   const [invoiceFilterStatus, setInvoiceFilterStatus] = useState<'all' | 'paid' | 'due' | 'returned'>('all');
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
   const [invoiceSubTab, setInvoiceSubTab] = useState<'invoices' | 'quotations' | 'challans' | 'credit_notes'>('invoices');
+
+  // Phase 3 CRM & Digital Due Ledger State
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [selectedLedgerCustomer, setSelectedLedgerCustomer] = useState<Customer | null>(null);
+  const [isReceivePaymentModalOpen, setIsReceivePaymentModalOpen] = useState(false);
+  const [selectedPaymentCustomer, setSelectedPaymentCustomer] = useState<Customer | null>(null);
+  const [isSmsReminderModalOpen, setIsSmsReminderModalOpen] = useState(false);
+  const [selectedSmsCustomer, setSelectedSmsCustomer] = useState<Customer | null>(null);
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
+  const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
+  const [isPaymentReceiptModalOpen, setIsPaymentReceiptModalOpen] = useState(false);
+  const [selectedPaymentReceipt, setSelectedPaymentReceipt] = useState<CustomerPaymentReceipt | null>(null);
+
+  const [customerFilterStatus, setCustomerFilterStatus] = useState<'all' | 'due' | 'paid' | 'over_limit'>('all');
+  const [customerTierFilter, setCustomerTierFilter] = useState<'all' | 'vip' | 'gold' | 'silver' | 'bronze'>('all');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [crmSubTab, setCrmSubTab] = useState<'customers' | 'receipts'>('customers');
 
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
@@ -218,6 +268,79 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   const totalSalesDue = useMemo(() => {
     return tenantCustomers.reduce((acc, c) => acc + c.dueAmount, 0);
   }, [tenantCustomers]);
+
+  // Phase 3 CRM & Due Ledger Calculations
+  const tenantReceipts = useMemo(() => {
+    return (paymentReceipts || []).filter(r => r.tenantId === tenant.id);
+  }, [paymentReceipts, tenant.id]);
+
+  const collectedThisMonth = useMemo(() => {
+    return tenantReceipts.reduce((sum, r) => sum + r.amount, 0);
+  }, [tenantReceipts]);
+
+  const activeDueCustomers = useMemo(() => {
+    return tenantCustomers.filter(c => c.dueAmount > 0);
+  }, [tenantCustomers]);
+
+  const overLimitCustomers = useMemo(() => {
+    return tenantCustomers.filter(c => (c.creditLimit || 0) > 0 && c.dueAmount > (c.creditLimit || 0));
+  }, [tenantCustomers]);
+
+  const topCustomersByPurchases = useMemo(() => {
+    return [...tenantCustomers].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 4);
+  }, [tenantCustomers]);
+
+  const displayedCustomers = useMemo(() => {
+    return tenantCustomers.filter(c => {
+      // Status filter
+      if (customerFilterStatus === 'due' && c.dueAmount <= 0) return false;
+      if (customerFilterStatus === 'paid' && c.dueAmount > 0) return false;
+      if (customerFilterStatus === 'over_limit') {
+        const limit = c.creditLimit || 0;
+        if (limit <= 0 || c.dueAmount <= limit) return false;
+      }
+
+      // Loyalty tier filter
+      if (customerTierFilter !== 'all' && c.loyaltyTier !== customerTierFilter) return false;
+
+      // Search query
+      if (customerSearchQuery.trim()) {
+        const q = customerSearchQuery.toLowerCase();
+        const matchesName = c.name.toLowerCase().includes(q);
+        const matchesPhone = c.phone.toLowerCase().includes(q);
+        const matchesEmail = c.email?.toLowerCase().includes(q) || false;
+        const matchesAddress = c.address?.toLowerCase().includes(q) || false;
+        if (!matchesName && !matchesPhone && !matchesEmail && !matchesAddress) return false;
+      }
+
+      return true;
+    });
+  }, [tenantCustomers, customerFilterStatus, customerTierFilter, customerSearchQuery]);
+
+  const handleExportCustomersCSV = () => {
+    const headers = ['কাস্টমার আইডি', 'নাম', 'মোবাইল', 'ইমেইল', 'ঠিকানা', 'ক্যাটাগরি', 'লয়্যালটি টিয়ার', 'মোট ক্রয় (টাকা)', 'ক্রেডিট লিমিট (টাকা)', 'বর্তমান বকেয়া (টাকা)', 'অর্ডার সংখ্যা'];
+    const rows = displayedCustomers.map(c => [
+      c.id,
+      `"${c.name.replace(/"/g, '""')}"`,
+      c.phone,
+      c.email || '',
+      `"${(c.address || '').replace(/"/g, '""')}"`,
+      c.customerType || 'retail',
+      c.loyaltyTier || 'bronze',
+      c.totalSpent.toFixed(2),
+      (c.creditLimit || 0).toFixed(2),
+      c.dueAmount.toFixed(2),
+      c.purchaseCount,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `${tenant.slug}_Customer_Ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const totalStockCost = useMemo(() => {
     return tenantProducts.reduce((acc, p) => acc + (p.costPrice * p.stock), 0);
@@ -2002,56 +2125,574 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
             </div>
           )}
 
-          {/* CRM & DIGITAL DUE LEDGER (বাকি খাতা) */}
+          {/* CRM & DIGITAL DUE LEDGER (বাকি খাতা) - Phase 3 Enterprise CRM */}
           {activeTab === 'crm' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-6">
+              {/* Header with Title & Core Action Controls */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">CRM ও ডিজিটাল বাকি খাতা (Customer Due Ledger)</h2>
-                  <p className="text-xs text-slate-500">গ্রাহকের বাকির হিসাব, পেমেন্ট আদায় এবং সরাসরি মোবাইলে অটো এসএমএস পাঠানো</p>
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 bg-purple-100 text-purple-700 rounded-xl">
+                      <Users className="w-5 h-5" />
+                    </span>
+                    <h2 className="text-xl font-bold text-slate-900">CRM ও ডিজিটাল বাকি খাতা (Customer Due Ledger)</h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    ক্রেডিট লিমিট নিয়ন্ত্রণ, রিয়েল-টাইম বাকি খাতা, লেজার স্টেটমেন্ট প্রিন্ট ও ১-ক্লিক বাংলা SMS তাগাদা পোর্টাল
+                  </p>
                 </div>
-                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs font-semibold text-purple-900">
-                  মোট কাস্টমার বকেয়া: <strong className="text-sm font-extrabold text-rose-600">{tenant.currency}{totalSalesDue.toFixed(2)}</strong>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setCustomerToEdit(null);
+                      setIsAddCustomerModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    + নতুন গ্রাহক
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const firstWithDue = activeDueCustomers[0] || tenantCustomers[0];
+                      if (firstWithDue) {
+                        setSelectedPaymentCustomer(firstWithDue);
+                        setIsReceivePaymentModalOpen(true);
+                      } else {
+                        alert('বর্তমানে কোনো গ্রাহকের বকেয়া বাকি নেই।');
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-200 transition-colors cursor-pointer"
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    বকেয়া জমা গ্রহণ
+                  </button>
+
+                  <button
+                    onClick={handleExportCustomersCSV}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    CSV এক্সপোর্ট
+                  </button>
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {tenantCustomers.map(cust => (
-                  <div key={cust.id} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col justify-between">
+              {/* 4 Kanakku Top KPI Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Total Receivables / Due */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-sm text-slate-900">{cust.name}</h4>
-                          <p className="text-xs text-slate-500">{cust.phone}</p>
+                      <p className="text-xs font-semibold text-rose-600 uppercase tracking-wider">মোট পাওনা / বকেয়া (Due)</p>
+                      <h3 className="text-xl font-extrabold text-rose-600 mt-1">
+                        {tenant.currency}{totalSalesDue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </h3>
+                    </div>
+                    <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>বকেয়া খাতা খরিদ্দার</span>
+                    <span className="font-bold text-rose-600">{activeDueCustomers.length} জন</span>
+                  </div>
+                </div>
+
+                {/* 2. Collected This Month */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">চলতি মাসে মোট আদায়</p>
+                      <h3 className="text-xl font-extrabold text-emerald-700 mt-1">
+                        {tenant.currency}{collectedThisMonth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </h3>
+                    </div>
+                    <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>আদায় রশিদ সংখ্যা</span>
+                    <span className="font-bold text-emerald-600">{tenantReceipts.length} টি ভাউচার</span>
+                  </div>
+                </div>
+
+                {/* 3. Total Customers */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">মোট সক্রিয় খরিদ্দার</p>
+                      <h3 className="text-xl font-extrabold text-slate-900 mt-1">
+                        {tenantCustomers.length} জন
+                      </h3>
+                    </div>
+                    <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                      <Users className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>পরিশোধিত অ্যাকাউন্ট</span>
+                    <span className="font-bold text-slate-700">{tenantCustomers.length - activeDueCustomers.length} জন</span>
+                  </div>
+                </div>
+
+                {/* 4. Over Credit Limit */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">ক্রেডিট লিমিট অতিক্রমকারী</p>
+                      <h3 className="text-xl font-extrabold text-amber-900 mt-1">
+                        {overLimitCustomers.length} জন
+                      </h3>
+                    </div>
+                    <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>উচ্চ ঝুঁকি স্ট্যাটাস</span>
+                    <span className={`font-bold ${overLimitCustomers.length > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {overLimitCustomers.length > 0 ? 'তাগাদা প্রয়োজন' : 'ঝুঁকিমুক্ত'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Customers Loyalty Ranking Bar */}
+              {topCustomersByPurchases.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200/80 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-4 h-4 text-purple-700" />
+                      <h4 className="font-extrabold text-xs text-purple-950 uppercase tracking-wider">
+                        শীর্ষ খরিদ্দার ও লয়্যালটি র‍্যাংকিং (Top Customers)
+                      </h4>
+                    </div>
+                    <span className="text-[10px] text-purple-700 font-semibold">আজীবন কেনাকাটার পরিমাণের ভিত্তিতে</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {topCustomersByPurchases.map((tc, idx) => (
+                      <div
+                        key={tc.id}
+                        onClick={() => {
+                          setSelectedLedgerCustomer(tc);
+                          setIsLedgerModalOpen(true);
+                        }}
+                        className="bg-white p-3 rounded-xl border border-purple-100 shadow-2xs hover:shadow-xs hover:border-purple-300 transition cursor-pointer flex flex-col justify-between"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${
+                            idx === 0 ? 'bg-amber-100 text-amber-900' :
+                            idx === 1 ? 'bg-slate-200 text-slate-800' :
+                            idx === 2 ? 'bg-orange-100 text-orange-900' : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            #{idx + 1}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-purple-100 text-purple-800">
+                            {tc.loyaltyTier || 'gold'}
+                          </span>
                         </div>
-                        {cust.dueAmount > 0 ? (
-                          <span className="px-2 py-0.5 bg-rose-100 text-rose-700 font-bold rounded-lg text-xs">
-                            বাকি: {tenant.currency}{cust.dueAmount}
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-medium rounded-lg text-xs">
-                            পরিশোধিত
-                          </span>
-                        )}
+                        <div className="mt-2">
+                          <strong className="text-xs font-bold text-slate-900 block truncate">{tc.name}</strong>
+                          <div className="text-[11px] font-black text-purple-700 mt-0.5">
+                            {tenant.currency}{tc.totalSpent.toLocaleString()}
+                          </div>
+                        </div>
+                        <span className="text-[9px] text-slate-400 block mt-1">
+                          {tc.purchaseCount} বার ক্রয় • লেজার দেখুন →
+                        </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-2">{cust.address}</p>
-                      <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-600">
-                        <span>মোট ক্রয়: {tenant.currency}{cust.totalSpent}</span>
-                        <span>অর্ডার সংখ্যা: {cust.purchaseCount} বার</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-Tabs: Customers vs Payment Receipts */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="flex border-b border-slate-200 bg-slate-50/70 p-2 gap-2 overflow-x-auto">
+                  <button
+                    onClick={() => setCrmSubTab('customers')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      crmSubTab === 'customers'
+                        ? 'bg-white text-purple-800 shadow-xs border border-slate-200/80'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    গ্রাহক ও বাকি খাতা তালিকা
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800 font-extrabold">
+                      {tenantCustomers.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setCrmSubTab('receipts')}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      crmSubTab === 'receipts'
+                        ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    <Receipt className="w-4 h-4" />
+                    টাকা জমা ও মানি রিসিট হিস্ট্রি
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-extrabold">
+                      {tenantReceipts.length}
+                    </span>
+                  </button>
+                </div>
+
+                {/* TAB 1: CUSTOMERS & DUE LEDGER */}
+                {crmSubTab === 'customers' && (
+                  <div>
+                    {/* Filters & Search Toolbar */}
+                    <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
+                      {/* Status Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+                        <button
+                          onClick={() => setCustomerFilterStatus('all')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                            customerFilterStatus === 'all'
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          সকল ({tenantCustomers.length})
+                        </button>
+                        <button
+                          onClick={() => setCustomerFilterStatus('due')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                            customerFilterStatus === 'due'
+                              ? 'bg-rose-600 text-white'
+                              : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                          }`}
+                        >
+                          বকেয়া আছে ({activeDueCustomers.length})
+                        </button>
+                        <button
+                          onClick={() => setCustomerFilterStatus('paid')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                            customerFilterStatus === 'paid'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          }`}
+                        >
+                          পরিশোধিত ({tenantCustomers.length - activeDueCustomers.length})
+                        </button>
+                        <button
+                          onClick={() => setCustomerFilterStatus('over_limit')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                            customerFilterStatus === 'over_limit'
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                          }`}
+                        >
+                          লিমিট পার ({overLimitCustomers.length})
+                        </button>
+
+                        {/* Loyalty Tier Dropdown Filter */}
+                        <select
+                          value={customerTierFilter}
+                          onChange={e => setCustomerTierFilter(e.target.value as any)}
+                          className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none ml-1"
+                        >
+                          <option value="all">সকল লয়্যালটি টিয়ার</option>
+                          <option value="vip">VIP সদস্য</option>
+                          <option value="gold">Gold গোল্ড</option>
+                          <option value="silver">Silver সিলভার</option>
+                          <option value="bronze">Bronze ব্রোঞ্জ</option>
+                        </select>
+                      </div>
+
+                      {/* Search Bar */}
+                      <div className="relative w-full md:w-72">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={customerSearchQuery}
+                          onChange={e => setCustomerSearchQuery(e.target.value)}
+                          placeholder="নাম, ফোন, ঠিকানা বা ইমেইল খুঁজুন..."
+                          className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 outline-none"
+                        />
+                        {customerSearchQuery && (
+                          <button
+                            onClick={() => setCustomerSearchQuery('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
-                      <button
-                        onClick={() => onSmsCustomerDue(cust)}
-                        disabled={cust.dueAmount <= 0}
-                        className="flex-1 py-1.5 bg-purple-700 hover:bg-purple-800 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs"
-                      >
-                        <Send className="w-3.5 h-3.5" /> বকেয়া তাগাদা SMS
-                      </button>
+                    {/* Customers Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
+                          <tr>
+                            <th className="py-3 px-4">গ্রাহকের নাম ও যোগাযোগ</th>
+                            <th className="py-3 px-4">ক্যাটাগরি ও টিয়ার</th>
+                            <th className="py-3 px-4 text-right">ক্রেডিট লিমিট</th>
+                            <th className="py-3 px-4 text-right">মোট ক্রয় (Spent)</th>
+                            <th className="py-3 px-4 text-right">বর্তমান বকেয়া (Due)</th>
+                            <th className="py-3 px-4 text-center">সর্বশেষ ক্রয়</th>
+                            <th className="py-3 px-4 text-center">অ্যাকশন ও বাকি খাতা</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {displayedCustomers.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-12 text-center text-slate-400">
+                                <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                                <p className="font-semibold text-slate-600">কোনো গ্রাহকের তথ্য পাওয়া যায়নি</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">নতুন গ্রাহক যুক্ত করতে উপরের বাটনে ক্লিক করুন</p>
+                              </td>
+                            </tr>
+                          ) : (
+                            displayedCustomers.map(cust => {
+                              const limit = cust.creditLimit || 0;
+                              const isOver = limit > 0 && cust.dueAmount > limit;
+                              const hasDue = cust.dueAmount > 0;
+
+                              return (
+                                <tr key={cust.id} className="hover:bg-slate-50/80 transition">
+                                  {/* Name & Phone */}
+                                  <td className="py-3 px-4">
+                                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                                      <span>{cust.name}</span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-mono flex items-center gap-2 mt-0.5">
+                                      <span>{cust.phone}</span>
+                                      {cust.email && <span className="text-slate-400 font-sans">• {cust.email}</span>}
+                                    </div>
+                                    {cust.address && (
+                                      <div className="text-[10px] text-slate-400 truncate max-w-xs mt-0.5">
+                                        📍 {cust.address}
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Category & Tier */}
+                                  <td className="py-3 px-4">
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                        {cust.customerType === 'wholesale' ? 'পাইকারি' : cust.customerType === 'corporate' ? 'কর্পোরেট' : 'খুচরা'}
+                                      </span>
+                                      {cust.loyaltyTier && (
+                                        <span className={`text-[9px] uppercase font-black px-1.5 py-0.2 rounded ${
+                                          cust.loyaltyTier === 'vip' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                                          cust.loyaltyTier === 'gold' ? 'bg-yellow-100 text-yellow-900' :
+                                          cust.loyaltyTier === 'silver' ? 'bg-slate-200 text-slate-800' : 'bg-orange-100 text-orange-900'
+                                        }`}>
+                                          ★ {cust.loyaltyTier}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Credit Limit */}
+                                  <td className="py-3 px-4 text-right">
+                                    <div className="font-mono font-bold text-slate-800">
+                                      {limit > 0 ? `${tenant.currency}${limit.toLocaleString()}` : 'সীমাহীন'}
+                                    </div>
+                                    {isOver && (
+                                      <span className="inline-block text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 mt-0.5">
+                                        ⚠️ লিমিট পার
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Total Spent */}
+                                  <td className="py-3 px-4 text-right">
+                                    <div className="font-mono font-extrabold text-purple-700">
+                                      {tenant.currency}{cust.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      {cust.purchaseCount} বার কেনাকাটা
+                                    </div>
+                                  </td>
+
+                                  {/* Due Amount */}
+                                  <td className="py-3 px-4 text-right">
+                                    {hasDue ? (
+                                      <div>
+                                        <span className="font-mono font-black text-rose-600 text-sm">
+                                          {tenant.currency}{cust.dueAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        </span>
+                                        <span className="block text-[9px] text-rose-500 font-semibold mt-0.5">
+                                          বকেয়া অনাদায়ী
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <span className="font-mono font-bold text-emerald-700">
+                                          {tenant.currency}0.00
+                                        </span>
+                                        <span className="block text-[9px] text-emerald-600 font-semibold mt-0.5">
+                                          পরিশোধিত ✓
+                                        </span>
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Last Purchased */}
+                                  <td className="py-3 px-4 text-center font-mono text-slate-500 text-[11px]">
+                                    {cust.lastPurchased || 'N/A'}
+                                  </td>
+
+                                  {/* Action Buttons */}
+                                  <td className="py-3 px-4 text-center">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {/* View Ledger */}
+                                      <button
+                                        onClick={() => {
+                                          setSelectedLedgerCustomer(cust);
+                                          setIsLedgerModalOpen(true);
+                                        }}
+                                        className="p-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-800 transition cursor-pointer"
+                                        title="লেজার স্টেটমেন্ট দেখুন ও প্রিন্ট করুন"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
+                                      </button>
+
+                                      {/* Receive Due Payment */}
+                                      <button
+                                        onClick={() => {
+                                          setSelectedPaymentCustomer(cust);
+                                          setIsReceivePaymentModalOpen(true);
+                                        }}
+                                        className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition cursor-pointer"
+                                        title="বকেয়া জমা গ্রহণ করুন"
+                                      >
+                                        <DollarSign className="w-3.5 h-3.5" />
+                                      </button>
+
+                                      {/* SMS Payment Reminder */}
+                                      <button
+                                        onClick={() => {
+                                          setSelectedSmsCustomer(cust);
+                                          setIsSmsReminderModalOpen(true);
+                                        }}
+                                        disabled={!hasDue}
+                                        className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 disabled:opacity-30 text-indigo-700 transition cursor-pointer"
+                                        title="বকেয়া তাগাদা SMS পাঠান"
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                      </button>
+
+                                      {/* Edit Customer Profile */}
+                                      <button
+                                        onClick={() => {
+                                          setCustomerToEdit(cust);
+                                          setIsAddCustomerModalOpen(true);
+                                        }}
+                                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                                        title="গ্রাহকের তথ্য ও ক্রেডিট লিমিট এডিট করুন"
+                                      >
+                                        <Settings className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* TAB 2: MONEY RECEIPTS HISTORY */}
+                {crmSubTab === 'receipts' && (
+                  <div>
+                    <div className="p-4 border-b border-slate-200 flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-700">বকেয়া জমা ও আদায়কৃত মানি রিসিটের তালিকা</span>
+                      <span className="text-slate-500">মোট রিসিট: <strong>{tenantReceipts.length}</strong> টি</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
+                          <tr>
+                            <th className="py-3 px-4">রশিদ নং</th>
+                            <th className="py-3 px-4">গ্রাহকের নাম ও ফোন</th>
+                            <th className="py-3 px-4">তারিখ ও সময়</th>
+                            <th className="py-3 px-4">পেমেন্ট মাধ্যম</th>
+                            <th className="py-3 px-4 text-right">জমার পরিমাণ</th>
+                            <th className="py-3 px-4 text-right">ছাড় (Discount)</th>
+                            <th className="py-3 px-4 text-right">অবশিষ্ট বকেয়া</th>
+                            <th className="py-3 px-4 text-center">আদায়কারী</th>
+                            <th className="py-3 px-4 text-center">ভাউচার প্রিন্ট</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {tenantReceipts.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="py-12 text-center text-slate-400">
+                                <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                                <p className="font-semibold text-slate-600">কোনো জমার ভাউচার তৈরি হয়নি</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">গ্রাহক থেকে টাকা জমা নিলে এখানে স্বয়ংক্রিয়ভাবে সংরক্ষিত হবে</p>
+                              </td>
+                            </tr>
+                          ) : (
+                            tenantReceipts.map(rec => (
+                              <tr key={rec.id} className="hover:bg-slate-50/80 transition">
+                                <td className="py-3 px-4 font-mono font-bold text-purple-700">
+                                  {rec.receiptNumber}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-slate-900">{rec.customerName}</div>
+                                  <div className="text-[11px] text-slate-400 font-mono">{rec.customerPhone}</div>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-slate-600 text-[11px]">
+                                  {rec.date}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="uppercase font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
+                                    {rec.paymentMethod}
+                                  </span>
+                                  {rec.transactionId && (
+                                    <div className="text-[9px] text-purple-600 font-mono mt-0.5">
+                                      Trx: {rec.transactionId}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono font-black text-emerald-700 text-sm">
+                                  {tenant.currency}{rec.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-600">
+                                  {rec.discount > 0 ? `${tenant.currency}${rec.discount.toFixed(2)}` : '-'}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                  {tenant.currency}{rec.remainingDue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3 px-4 text-center text-slate-600 text-[11px]">
+                                  {rec.collectedBy}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedPaymentReceipt(rec);
+                                      setIsPaymentReceiptModalOpen(true);
+                                    }}
+                                    className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition cursor-pointer"
+                                    title="মানি রিসিট প্রিন্ট করুন"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2134,53 +2775,21 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
 
           {/* HRM TAB */}
           {activeTab === 'hrm' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">HRM, কর্মচারী হাজিরা ও সেলস কমিশন</h2>
-                  <p className="text-xs text-slate-500">স্টাফদের মাসিক বেতন, দৈনিক উপস্থিতি এবং বিক্রয়ের ওপর কমিশন নির্ধারণ</p>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {tenantEmployees.map(emp => (
-                  <div key={emp.id} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-900">{emp.name}</h4>
-                        <span className="inline-block px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold uppercase mt-1">
-                          {emp.role}
-                        </span>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                        উপস্থিত
-                      </span>
-                    </div>
-
-                    <div className="space-y-1 text-xs text-slate-600">
-                      <div className="flex justify-between">
-                        <span>মূল মাসিক বেতন:</span>
-                        <span className="font-semibold">{tenant.currency}{emp.salary.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>চলতি মাসের সেলস:</span>
-                        <span className="font-semibold text-purple-700">{tenant.currency}{emp.salesThisMonth.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>কমিশন ({emp.salesCommissionRate}%):</span>
-                        <span className="font-bold text-emerald-600">
-                          {tenant.currency}{(emp.salesThisMonth * (emp.salesCommissionRate / 100)).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-slate-100 font-bold text-slate-900">
-                        <span>মোট পরিশোধযোগ্য:</span>
-                        <span>{tenant.currency}{(emp.salary + (emp.salesThisMonth * (emp.salesCommissionRate / 100))).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <HRMManager
+              tenant={tenant}
+              employees={employees}
+              warehouses={warehouses}
+              attendanceRecords={attendanceRecords}
+              rolePermissions={rolePermissions}
+              salarySlips={salarySlips}
+              onSaveEmployee={onSaveEmployee || (() => {})}
+              onDeleteEmployee={onDeleteEmployee}
+              onUpdateAttendanceRecord={onUpdateAttendanceRecord || (() => {})}
+              onBulkMarkAttendance={onBulkMarkAttendance}
+              onUpdateRolePermissions={onUpdateRolePermissions || (() => {})}
+              onAddSalarySlip={onAddSalarySlip || (() => {})}
+              onUpdateSlipStatus={onUpdateSlipStatus || (() => {})}
+            />
           )}
 
           {/* AI TAB */}
@@ -2623,6 +3232,81 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
         sales={tenantSales}
         creditNotes={creditNotes}
         onCreateCreditNote={(cn, items) => onCreateCreditNote?.(cn, items)}
+      />
+
+      {/* Phase 3: Customer Detailed Ledger Statement Modal */}
+      <CustomerLedgerModal
+        isOpen={isLedgerModalOpen}
+        onClose={() => {
+          setIsLedgerModalOpen(false);
+          setSelectedLedgerCustomer(null);
+        }}
+        customer={selectedLedgerCustomer}
+        tenant={tenant}
+        onOpenReceivePayment={(cust) => {
+          setIsLedgerModalOpen(false);
+          setSelectedPaymentCustomer(cust);
+          setIsReceivePaymentModalOpen(true);
+        }}
+        onOpenSmsReminder={(cust) => {
+          setIsLedgerModalOpen(false);
+          setSelectedSmsCustomer(cust);
+          setIsSmsReminderModalOpen(true);
+        }}
+      />
+
+      {/* Phase 3: Receive Due Payment Modal */}
+      <ReceivePaymentModal
+        isOpen={isReceivePaymentModalOpen}
+        onClose={() => {
+          setIsReceivePaymentModalOpen(false);
+          setSelectedPaymentCustomer(null);
+        }}
+        customer={selectedPaymentCustomer}
+        tenant={tenant}
+        cashierName={employees[0]?.name || 'Suman Roy'}
+        onPaymentReceived={(receipt) => {
+          onReceivePayment?.(receipt);
+        }}
+      />
+
+      {/* Phase 3: SMS Payment Reminder Modal */}
+      <SmsReminderModal
+        isOpen={isSmsReminderModalOpen}
+        onClose={() => {
+          setIsSmsReminderModalOpen(false);
+          setSelectedSmsCustomer(null);
+        }}
+        customer={selectedSmsCustomer}
+        tenant={tenant}
+        onSendSms={(cust, msg) => {
+          onSmsCustomerDue(cust, msg);
+        }}
+      />
+
+      {/* Phase 3: Add / Edit Customer Modal */}
+      <AddCustomerModal
+        isOpen={isAddCustomerModalOpen}
+        onClose={() => {
+          setIsAddCustomerModalOpen(false);
+          setCustomerToEdit(null);
+        }}
+        tenant={tenant}
+        customerToEdit={customerToEdit}
+        onSaveCustomer={(customerData, existingId) => {
+          onAddCustomer?.(customerData, existingId);
+        }}
+      />
+
+      {/* Phase 3: Money Receipt Voucher Modal */}
+      <PaymentReceiptModal
+        isOpen={isPaymentReceiptModalOpen}
+        onClose={() => {
+          setIsPaymentReceiptModalOpen(false);
+          setSelectedPaymentReceipt(null);
+        }}
+        receipt={selectedPaymentReceipt}
+        tenant={tenant}
       />
     </div>
   );

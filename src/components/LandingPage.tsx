@@ -72,6 +72,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       status: 'active',
       subscriptionExpiry: '2027-04-30',
       monthlyFee: 1999,
+      quotas: {
+        maxBranches: 3,
+        maxUsers: 10,
+        maxProducts: 10000,
+        maxMonthlyInvoices: 5000,
+        storageGb: 10,
+      },
+      usage: {
+        currentBranches: 1,
+        currentUsers: 1,
+        currentProducts: 0,
+        currentMonthlyInvoices: 0,
+        currentStorageMb: 25,
+      },
       features: {
         pos: true,
         ecommerce: true,

@@ -3,11 +3,13 @@ import {
   INITIAL_TENANTS, INITIAL_PRODUCTS, INITIAL_CUSTOMERS, 
   INITIAL_SALES, INITIAL_EMPLOYEES, INITIAL_ONLINE_ORDERS, 
   INITIAL_WAREHOUSES, INITIAL_QUOTATIONS, INITIAL_DELIVERY_CHALLANS,
-  INITIAL_CREDIT_NOTES
+  INITIAL_CREDIT_NOTES, INITIAL_PAYMENT_RECEIPTS,
+  INITIAL_ATTENDANCE_RECORDS, INITIAL_ROLE_PERMISSIONS, INITIAL_SALARY_SLIPS
 } from './data/mockData';
 import { 
-  Tenant, Product, Sale, Customer, OnlineOrder, Warehouse,
-  Quotation, DeliveryChallan, CreditNote 
+  Tenant, Product, Sale, Customer, Employee, OnlineOrder, Warehouse,
+  Quotation, DeliveryChallan, CreditNote, CustomerPaymentReceipt,
+  CustomerTransaction, AttendanceRecord, RolePermission, SalarySlip
 } from './types';
 import { LandingPage } from './components/LandingPage';
 import { SuperAdmin } from './components/SuperAdmin';
@@ -17,13 +19,14 @@ import { StorefrontView } from './components/StorefrontView';
 import { CalculatorModal } from './components/CalculatorModal';
 import { ThermalReceipt } from './components/ThermalReceipt';
 import { A4InvoiceModal } from './components/A4InvoiceModal';
-import { CheckCircle2, MessageSquare, X } from 'lucide-react';
+import { CheckCircle2, MessageSquare, X, ArrowLeft, Building2 } from 'lucide-react';
 
 export default function App() {
   // Navigation View State
   const [currentView, setCurrentView] = useState<
     'landing' | 'super_admin' | 'tenant_dashboard' | 'pos' | 'storefront'
   >('landing');
+  const [isImpersonating, setIsImpersonating] = useState(false);
 
   // Core Data Collections
   const [tenants, setTenants] = useState<Tenant[]>(INITIAL_TENANTS);
@@ -31,13 +34,17 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [sales, setSales] = useState<Sale[]>(INITIAL_SALES);
   const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
-  const [employees, setEmployees] = useState(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>(INITIAL_ONLINE_ORDERS);
   const [warehouses, setWarehouses] = useState<Warehouse[]>(INITIAL_WAREHOUSES);
   const [activeWarehouseId, setActiveWarehouseId] = useState<string>('all');
   const [quotations, setQuotations] = useState<Quotation[]>(INITIAL_QUOTATIONS);
   const [deliveryChallans, setDeliveryChallans] = useState<DeliveryChallan[]>(INITIAL_DELIVERY_CHALLANS);
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(INITIAL_CREDIT_NOTES);
+  const [paymentReceipts, setPaymentReceipts] = useState<CustomerPaymentReceipt[]>(INITIAL_PAYMENT_RECEIPTS);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(INITIAL_ROLE_PERMISSIONS);
+  const [salarySlips, setSalarySlips] = useState<SalarySlip[]>(INITIAL_SALARY_SLIPS);
 
   // Modals & Tools
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
@@ -48,7 +55,7 @@ export default function App() {
   );
 
   // SMS Alert Simulation Toast
-  const [smsToast, setSmsToast] = useState<{ name: string; phone: string; amount: number } | null>(null);
+  const [smsToast, setSmsToast] = useState<{ name: string; phone: string; amount: number; message?: string } | null>(null);
 
   // Active Tenant Helper
   const activeTenant = tenants.find(t => t.id === activeTenantId) || tenants[0];
@@ -103,12 +110,28 @@ export default function App() {
       setCustomers(prev => {
         return prev.map(c => {
           if (c.id === newSale.customerId) {
+            const newDue = c.dueAmount + newSale.dueAmount;
+            const newTrx: CustomerTransaction = {
+              id: 'trx-' + Date.now(),
+              customerId: c.id,
+              date: newSale.createdAt.slice(0, 10),
+              type: 'invoice',
+              referenceNo: newSale.invoiceNumber,
+              description: `বিক্রয় মেমো (${newSale.paymentMethod.toUpperCase()})`,
+              debit: newSale.totalAmount,
+              credit: newSale.paidAmount,
+              balance: newDue,
+              paymentMethod: newSale.paymentMethod as any,
+              note: `মোট বিল: ৳${newSale.totalAmount}, জমা: ৳${newSale.paidAmount}`,
+            };
+
             return {
               ...c,
               totalSpent: c.totalSpent + newSale.totalAmount,
-              dueAmount: c.dueAmount + newSale.dueAmount,
+              dueAmount: newDue,
               purchaseCount: c.purchaseCount + 1,
               lastPurchased: new Date().toISOString().slice(0, 10),
+              transactions: [newTrx, ...(c.transactions || [])],
             };
           }
           return c;
@@ -157,15 +180,59 @@ export default function App() {
     setProducts(prev => prev.filter(p => p.id !== productId));
   };
 
-  const handleSmsDue = (customer: Customer) => {
+  const handleSaveCustomer = (customerData: Omit<Customer, 'id'>, existingId?: string) => {
+    if (existingId) {
+      setCustomers(prev => prev.map(c => c.id === existingId ? { ...c, ...customerData, id: existingId } : c));
+    } else {
+      const newId = 'cust-' + Date.now();
+      const created: Customer = {
+        ...customerData,
+        id: newId,
+      };
+      setCustomers(prev => [created, ...prev]);
+    }
+  };
+
+  const handleReceivePayment = (receipt: CustomerPaymentReceipt) => {
+    setPaymentReceipts(prev => [receipt, ...prev]);
+
+    setCustomers(prev => prev.map(c => {
+      if (c.id === receipt.customerId) {
+        const remainingDue = receipt.remainingDue;
+        const newTrx: CustomerTransaction = {
+          id: 'trx-' + Date.now(),
+          customerId: c.id,
+          date: receipt.date.slice(0, 10),
+          type: 'payment',
+          referenceNo: receipt.receiptNumber,
+          description: `বকেয়া জমা (${receipt.paymentMethod.toUpperCase()})${receipt.discount > 0 ? ` [ছাড়: ৳${receipt.discount}]` : ''}`,
+          debit: 0,
+          credit: receipt.amount + receipt.discount,
+          balance: remainingDue,
+          paymentMethod: receipt.paymentMethod,
+          note: receipt.note || (receipt.transactionId ? `TrxID: ${receipt.transactionId}` : undefined),
+        };
+
+        return {
+          ...c,
+          dueAmount: remainingDue,
+          transactions: [newTrx, ...(c.transactions || [])],
+        };
+      }
+      return c;
+    }));
+  };
+
+  const handleSmsDue = (customer: Customer, message?: string) => {
     setSmsToast({
       name: customer.name,
       phone: customer.phone,
       amount: customer.dueAmount,
+      message,
     });
     setTimeout(() => {
       setSmsToast(null);
-    }, 5000);
+    }, 6000);
   };
 
   const handleUpdateOrderStatus = (orderId: string, status: OnlineOrder['status']) => {
@@ -272,6 +339,96 @@ export default function App() {
     setActiveA4InvoiceSale(newSale);
   };
 
+  // Phase 5 HRM Handlers
+  const handleSaveEmployee = (empData: Omit<Employee, 'id'>, existingId?: string) => {
+    if (existingId) {
+      setEmployees(prev => prev.map(e => e.id === existingId ? { ...empData, id: existingId } : e));
+    } else {
+      const newEmp: Employee = {
+        ...empData,
+        id: 'emp-' + Date.now(),
+      };
+      setEmployees(prev => [newEmp, ...prev]);
+    }
+  };
+
+  const handleDeleteEmployee = (id: string) => {
+    setEmployees(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleUpdateAttendanceRecord = (record: AttendanceRecord) => {
+    setAttendanceRecords(prev => {
+      const idx = prev.findIndex(r => r.tenantId === record.tenantId && r.employeeId === record.employeeId && r.date === record.date);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = record;
+        return copy;
+      }
+      return [record, ...prev];
+    });
+
+    setEmployees(prev => prev.map(e => {
+      if (e.id === record.employeeId) {
+        return {
+          ...e,
+          attendanceToday: record.status,
+          clockInTime: record.clockIn || e.clockInTime,
+          clockOutTime: record.clockOut || e.clockOutTime,
+        };
+      }
+      return e;
+    }));
+  };
+
+  const handleBulkMarkAttendance = (records: AttendanceRecord[]) => {
+    setAttendanceRecords(prev => {
+      let nextList = [...prev];
+      records.forEach(rec => {
+        const idx = nextList.findIndex(r => r.tenantId === rec.tenantId && r.employeeId === rec.employeeId && r.date === rec.date);
+        if (idx >= 0) {
+          nextList[idx] = rec;
+        } else {
+          nextList = [rec, ...nextList];
+        }
+      });
+      return nextList;
+    });
+
+    setEmployees(prev => prev.map(e => {
+      const rec = records.find(r => r.employeeId === e.id);
+      if (rec) {
+        return {
+          ...e,
+          attendanceToday: rec.status,
+          clockInTime: rec.clockIn || e.clockInTime,
+        };
+      }
+      return e;
+    }));
+  };
+
+  const handleUpdateRolePermissions = (roles: RolePermission[]) => {
+    setRolePermissions(roles);
+  };
+
+  const handleAddSalarySlip = (slip: SalarySlip) => {
+    setSalarySlips(prev => [slip, ...prev]);
+  };
+
+  const handleUpdateSlipStatus = (slipId: string, status: 'paid' | 'pending', method?: 'cash' | 'bkash' | 'bank') => {
+    setSalarySlips(prev => prev.map(s => {
+      if (s.id === slipId) {
+        return {
+          ...s,
+          status,
+          paymentMethod: method || s.paymentMethod,
+          paymentDate: new Date().toISOString().slice(0, 10),
+        };
+      }
+      return s;
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-purple-100 selection:text-purple-900">
       {/* View Switcher Bar (Persistent Global Switcher for convenient testing) */}
@@ -330,6 +487,27 @@ export default function App() {
         </div>
       </div>
 
+      {/* Impersonation Banner if logged in via Super Admin */}
+      {isImpersonating && currentView !== 'super_admin' && (
+        <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white px-6 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between shadow-md border-b border-purple-500/30 gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>
+              ⚡ সুপার এডমিন ইম্পারসোনেশন ভিউ: আপনি বর্তমানে <strong className="text-amber-300">&quot;{activeTenant.name}&quot;</strong> ({activeTenant.slug}) স্টোরে প্রবেশ করেছেন।
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setIsImpersonating(false);
+              setCurrentView('super_admin');
+            }}
+            className="px-3 py-1 bg-white hover:bg-purple-50 text-purple-950 rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1.5"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> সুপার এডমিন কমান্ড সেন্টারে ফিরুন
+          </button>
+        </div>
+      )}
+
       {/* Render Current View */}
       {currentView === 'landing' && (
         <LandingPage
@@ -348,12 +526,14 @@ export default function App() {
           tenants={tenants}
           onUpdateTenant={handleUpdateTenant}
           onImpersonateTenant={(id) => {
+            setIsImpersonating(true);
             setActiveTenantId(id);
             setCurrentView('tenant_dashboard');
           }}
           onBackToLanding={() => setCurrentView('landing')}
           systemBroadcast={systemBroadcast}
           onSetSystemBroadcast={setSystemBroadcast}
+          onCreateTenant={handleCreateTenant}
         />
       )}
 
@@ -384,6 +564,9 @@ export default function App() {
           quotations={quotations}
           deliveryChallans={deliveryChallans}
           creditNotes={creditNotes}
+          paymentReceipts={paymentReceipts}
+          onAddCustomer={handleSaveCustomer}
+          onReceivePayment={handleReceivePayment}
           onCreateQuotation={handleCreateQuotation}
           onCreateDeliveryChallan={handleCreateDeliveryChallan}
           onCreateCreditNote={handleCreateCreditNote}
@@ -391,6 +574,16 @@ export default function App() {
           onOpenReceipt={(sale) => setActiveReceiptSale(sale)}
           onOpenA4Invoice={(sale) => setActiveA4InvoiceSale(sale)}
           systemBroadcast={systemBroadcast}
+          attendanceRecords={attendanceRecords}
+          rolePermissions={rolePermissions}
+          salarySlips={salarySlips}
+          onSaveEmployee={handleSaveEmployee}
+          onDeleteEmployee={handleDeleteEmployee}
+          onUpdateAttendanceRecord={handleUpdateAttendanceRecord}
+          onBulkMarkAttendance={handleBulkMarkAttendance}
+          onUpdateRolePermissions={handleUpdateRolePermissions}
+          onAddSalarySlip={handleAddSalarySlip}
+          onUpdateSlipStatus={handleUpdateSlipStatus}
         />
       )}
 
@@ -457,9 +650,13 @@ export default function App() {
             <p className="text-slate-300 mt-1">
               প্রাপক: <strong>{smsToast.name}</strong> ({smsToast.phone})
             </p>
-            <p className="text-[11px] text-slate-400 mt-1 italic bg-slate-800 p-2 rounded-lg border border-slate-700">
-              &quot;সম্মানিত গ্রাহক, {activeTenant.name}-এ আপনার বকেয়া {activeTenant.currency}{smsToast.amount.toFixed(2)} টাকা। দ্রুত পরিশোধের বিনীত অনুরোধ জানাচ্ছি।&quot;
+            <p className="text-[11px] text-slate-300 mt-1 italic bg-slate-800 p-2.5 rounded-lg border border-slate-700 leading-relaxed font-sans">
+              &quot;{smsToast.message || `সম্মানিত গ্রাহক, ${activeTenant.name}-এ আপনার বকেয়া ${activeTenant.currency}${smsToast.amount.toFixed(2)} টাকা। দ্রুত পরিশোধের বিনীত অনুরোধ জানাচ্ছি।`}&quot;
             </p>
+            <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>JH Soft SMS Gateway: Delivered</span>
+            </div>
           </div>
         </div>
       )}

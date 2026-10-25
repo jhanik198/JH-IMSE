@@ -1,109 +1,128 @@
-# JH IMSE — Enterprise Multi-Tenant B2B SaaS ERP & E-Commerce Site Builder
-## Master Architecture & Engineering Roadmap
-**Company:** JH Soft Corporation  
-**Helpline:** +8801940999830  
-**Core Leadership & Engineering Team:**
-- **Md Junayed Hossain Anik** — CEO & Main Developer
-- **MD Abdullah** — Architecture Designer
-- **MD Husain Ahmed** — UI & UX Designer
+# 🚀 JH IMSE - Enterprise Multi-Tenant ERP, Cloud POS & Multi-Company Subscription Platform
+**JH Soft Corporation** | Corporate Helpline: `+8801940999830` | Official Platform Suite
 
 ---
 
-## 🏛️ Platform Architecture Overview
-JH IMSE is a comprehensive enterprise B2B Multi-Tenant SaaS platform tailored for retail, wholesale, pharmacy, electronics, and distribution businesses in Bangladesh and globally. The UI/UX is deeply inspired by enterprise solutions (such as Kanakku / ThemeForest enterprise accounting systems) while maintaining strict human-crafted developer-grade styling (zero artificial AI-slop or gimmick icons).
+## 📌 Implementation Master Roadmap & Phase Status
 
-The system operates on three primary tiers:
-1. **Super Admin Tier:** Multi-company SaaS management, tenant lifecycle, subscriptions, plan billing, global broadcast, and master revenue analytics.
-2. **Tenant Business Hub (ERP/IMS/CRM/HRM):** Dedicated branded workspaces for each store with warehouse management, financial analytics, due ledgers, employee payroll, and online orders.
-3. **Omni-Channel Operations:**
-   - Fast POS Touch & Barcode Cash Counter (Retail & Wholesale modes, Thermal 80mm & A4 Invoices)
-   - Online Storefront Site Builder (with unique subdomain / custom domain support)
-
----
-
-## 🗺️ Master Phased Roadmap
-
-### ✅ Phase 1: Products & Advanced Multi-Niche Inventory (Completed)
-- **Deep Niche Fields:**
-  - Standard: Name, SKU, Category, Cost Price, Selling Price (MRP), Wholesale Price, Initial Stock, Low-stock Alert Limit, Units (pcs, kg, strip, bottle, box, packet, meter).
-  - Pharmacy (DGDA Standard): Generic Name, Dosage Form, Expiry Date, Batch No., DAR Registration No.
-  - Electronics & Hardware: Brand, Model No., Warranty Period in Months.
-  - Location Tracking: Rack/Shelf number (e.g. Rack-A1, Shelf-3) and Manufacturer/Company name.
-- **Barcode & Price Tag Generator (`BarcodeGeneratorModal`):**
-  - Layouts: A4 24-Label sheet, A4 40-Label sheet, 50mm×30mm thermal rolls.
-  - Live barcode preview, toggle store name, MRP, batch, and expiry. Direct browser print.
-- **CSV Bulk Import & Export (`BulkImportModal`):**
-  - Sample CSV template download, drag-and-drop file upload, live preview with field validation and error highlight, single-click mass import.
-  - Instant CSV Inventory export download.
-- **Stock Adjustment & Audit Discrepancy Log (`StockAdjustmentModal`):**
-  - Surplus additions, Damaged write-offs, Expired goods disposal, Audit discrepancy adjustments.
+| Phase | Milestone Name | Status | Key Deliverables |
+|---|---|---|---|
+| **Phase 1** | Core POS, Dual Barcode & 58/80mm Thermal Printer | ✅ **Completed** | POS Counter, Quick Cash, Sound FX, Barcode Generator, Thermal Slip |
+| **Phase 2** | Invoicing, Quotations, Challan, Credit Notes & Dual Warehouse | ✅ **Completed** | A4 Tax Invoice, Quotations to Invoice 1-Click, Challan, Credit Note, Stock Transfer |
+| **Phase 3** | CRM, Digital Due Ledger (বাকি খাতা) & Bengali SMS Alerts | ✅ **Completed** | Customer Ledger, Debit/Credit Timeline, Bengali SMS, Loyalty Tiers, Payment Receipts |
+| **Phase 4** | Kanakku-Grade Super Admin Dashboard & Multi-Company Subscription Hub | ✅ **Completed** | SaaS Executive Hub, Impersonation Mode, License Key Generator, Quotas, Billing, Domains, Broadcast Engine |
+| **Phase 5** | HRM, Staff Attendance, Roles & Sales Commission | ⏳ Planned | Staff Profiles, Daily Attendance, Role-based Access (RBAC), Payroll & Commission |
+| **Phase 6** | Financial Overview, Expense Tracker & Accounts (হিসাব খাতা) | ⏳ Planned | Cash Flow, Daily/Monthly P&L, Shop Rent/Utility Expenses, Supplier Ledger |
+| **Phase 7** | Multi-Store E-Commerce Site Builder & Delivery Engine | ⏳ Planned | Storefront Subdomains, Cart, bKash Gateway, Merchant Order Tracking |
+| **Phase 8** | Offline-First PWA, Mobile POS & Cloud Architecture | ⏳ Planned | Service Worker Offline Cache, Background Sync, Multi-Region DB |
 
 ---
 
-### ✅ Phase 2: POS Cash Counter, Invoices, Quotations, Challans & Credit Notes (Completed)
-- **Fast POS Cash Counter (`POSScreen`):**
-  - **Quick Barcode / SKU Scanner:** Input with instant `Enter` key detection and audio-visual feedback.
-  - **Dual Pricing Switch:** 1-click toggle between "খুচরা (Retail MRP)" and "পাইকারি (Wholesale)".
-  - **Hold / Park Cart (হোল্ড বিল):** Multiple bill parking when a customer steps away, with hold badge counter and 1-click resume.
-  - **Quick Taka Cash Shortcuts:** ৳20, ৳50, ৳100, ৳500, ৳1000, ৳2000 denomination buttons for zero-math fast change calculation.
-  - **Multi-Payment Modes:** Cash (নগদ), bKash (বিকাশ with TrxID), Nagad (নগদ with TrxID), Card, and Digital Due/Credit (বাকি খাতা).
-- **Dual Invoice Printing:**
-  - **80mm/58mm Thermal POS Slip (`ThermalReceipt`):** Store logo, phone, cashier info, line items, batch, due balance, thank you note.
-  - **A4 Corporate Tax Invoice (`A4InvoiceModal`):** Formal corporate format with Bill To, Ship To, Tax Breakdown, Words in Taka (কথায় টাকা), and authorized signature lines.
-- **Quotations (কোটেশন / প্রাক্কলন বিল - `QuotationModal`):**
-  - Quotation ID, customer details, item rates, validity date, status ('sent' | 'accepted' | 'declined' | 'expired').
-  - **1-Click Conversion:** "ইনভয়েসে রূপান্তর" to automatically spawn an invoice and deduct inventory.
-- **Delivery Challans (ডেলিভারি চালান - `DeliveryChallanModal`):**
-  - Challan ID, transport name (Sundarban, SA Paribahan, RedX, Steadfast, In-house Rider), vehicle number, driver contact, carton count, and dispatch status.
-- **Credit Notes & Sales Returns (বিক্রয় ফেরত - `CreditNoteModal`):**
-  - Credit Note ID, original invoice reference, condition assessment ('good' for restocking to inventory, 'damaged' for write-off), refund method (cash, ledger due adjustment, or customer wallet).
+### ✅ Phase 1: Core POS, Dual Barcode & 58/80mm Thermal Printer (সম্পন্ন)
+- **POS Screen (`POSScreen.tsx`):**
+  - Instant barcode scan with keyboard Enter support & search by SKU/name/generic.
+  - Cash, bKash, Nagad, Card, and Due (বাকি) payment splits.
+  - Quick cash presets (৳৫০, ৳১০০, ৳৫০০, ৳১০০০) and change calculation (ফেরত টাকা).
+  - Audio feedback for successful scanning and sale completion.
+- **Barcode Generator (`BarcodeGeneratorModal.tsx`):**
+  - Generates Code128 barcodes and 2D QR codes with product SKU, price, and batch info.
+  - Printable sticker sheets (A4 24-up and continuous roll 50x30mm).
+- **Thermal Slip Printer (`ThermalReceipt.tsx`):**
+  - 58mm & 80mm thermal receipt printing with company logo, Bengali typography, and barcode.
 
 ---
 
-### 📊 Phase 3: CRM & Digital Due Ledger (বাকি খাতা), Customer Statements & SMS Alerts
-- Digital Due Ledger with credit limits and payment history.
-- Customer Ledger Statement with debit/credit balance timeline.
-- Direct SMS payment reminders with customizable Bengali templates.
-- Top customer rankings and customer loyalty tier tracking.
+### ✅ Phase 2: Invoicing, Quotations, Challan, Credit Notes & Dual Warehouse (সম্পন্ন)
+- **Corporate A4 Tax Invoice (`A4InvoiceModal.tsx`):**
+  - Bill To, Ship To, Tax/VAT breakdown, Words in Taka (কথায় টাকা), and authorized seals.
+- **Quotations / প্রাক্কলন বিল (`QuotationModal.tsx`):**
+  - Quotation generation with validity dates and 1-click conversion to sales invoice.
+- **Delivery Challans / ডেলিভারি চালান (`DeliveryChallanModal.tsx`):**
+  - Transport partner mapping (Sundarban, SA Paribahan, RedX, Steadfast, In-house Rider), carton count, and dispatch status.
+- **Credit Notes / বিক্রয় ফেরত (`CreditNoteModal.tsx`):**
+  - Returns processing with condition assessment (good for restock, damaged for write-off).
+- **Dual Warehouse & Stock Transfer (`StockTransferModal.tsx`):**
+  - Inter-branch depot transfer and batch/expiry tracking for pharmaceuticals and perishables.
 
 ---
 
-### 🏢 Phase 4: Kanakku-Grade Super Admin Dashboard & Multi-Company Subscription Hub
-- **Executive SaaS Metrics:**
-  - Total Registered Companies, Active Companies, Inactive / Suspended, Total Active Subscription Plans.
-  - Earnings & Income charts with monthly and yearly toggles.
-  - Most ordered subscription plans (Starter, Professional, Enterprise).
-  - Recent Expired Subscriptions & Renewal Alerts.
-- **Company Management:**
-  - Impersonate / 1-Click login to any company's dashboard.
-  - Plan upgrades, suspension, custom domain approval, and storage quotas.
+### ✅ Phase 3: CRM & Digital Due Ledger (বাকি খাতা), Customer Statements & SMS Alerts (সম্পন্ন)
+- **Customer CRM Hub (`CustomerManager` in `TenantDashboard.tsx`):**
+  - Customer categorization: Retail, Wholesale, Corporate, Walk-in.
+  - Loyalty tiers: Bronze, Silver, Gold, VIP Platinum.
+  - Top spending customer rankings.
+- **Digital Due Ledger (`CustomerLedgerModal.tsx`):**
+  - Full debit/credit transaction history with running balance.
+- **Receive Due Payment (`ReceivePaymentModal.tsx` & `PaymentReceiptModal.tsx`):**
+  - Due collection with instant payment receipt generation.
+- **Bengali SMS Payment Reminders (`SmsReminderModal.tsx`):**
+  - Customizable Bengali SMS templates with 1-click delivery simulation.
+
+---
+
+### ✅ Phase 4: Kanakku-Grade Super Admin Dashboard & Multi-Company Subscription Hub (সম্পন্ন)
+- **Executive SaaS Metrics & Hero Overview:**
+  - Executive Welcome Banner ("শুভ সকাল, সুপার এডমিন | আজ ১৪টি নতুন কোম্পানি সাবস্ক্রাইব করেছে").
+  - Top 4 KPI Stat Cards: Total Registered Companies (৯৮৭ টি, +১৪%), Active Companies (৮৫৪ টি, +৮.৩৬%), Suspended / Grace Period (২৮ টি), Annual Run-Rate ARR (৳ ৫৫,০৭,৬৪০).
+  - MRR Target Progress Bar: ৳ ৪,৫৮,৯৭০ (টার্গেট ৳ ১০,০০,০০০, ৪৬% অর্জিত).
+  - 3 High-Level Insight Cards: Most Ordered Plan (Enterprise, ২০১ Orders, ৳ ৫,৯৯৯/mo), Top Company (ঢাকা ফ্যাশন, ১২টি ব্রাঞ্চ), Most Users & Storage (Apex Electronics, ৫০ জন ইউজার).
+- **Earnings & Income Visual Chart:**
+  - Monthly vs. Yearly toggle with Jan-Dec revenue bar graph and hover tooltips.
+  - Subscription Plan Distribution (Enterprise 45%, Professional 35%, Starter 15%, Trial 5%).
+- **Multi-Tenant Company Management Hub (`SuperAdmin.tsx`):**
+  - Search & multi-parameter filter (by Category, Plan Tier, and Status).
+  - Impersonate / 1-Click Store Login ("স্টোরে লগইন") with persistent top banner in client dashboard.
+  - Plan upgrade/downgrade and subscription status switcher (Active, Grace Period, Suspended, Expired).
+- **Resource Quota Management (`EditQuotaModal.tsx`):**
+  - Custom allocation of Max Branches, Max Users, Max Products, Monthly Invoices, and Storage GB.
+- **Enterprise License Key Generator (`TenantLicenseModal.tsx`):**
+  - Cryptographic license key generation (`JHIMSE-XXX-2026-XXXX`).
+  - Printable Corporate Software License Certificate with JH Soft Corporation branding.
+- **New Tenant Onboarding Modal (`CreateTenantModal.tsx`):**
+  - Trade License No., BIN/VAT, subdomains, owner credentials, and warehouse auto-creation.
+- **Custom Domains & SSL Verification:**
+  - CNAME verification (`cname.jh-imse.shop`), SSL status indicator (256-bit Secured), and approval workflow.
+- **SaaS Billing & Transactions Registry:**
+  - Payment tracking via bKash, Nagad, Bank Transfer, and Card with invoice numbers and TrxIDs.
 - **Global Broadcast Engine:**
-  - System-wide maintenance notices and notifications across all client portals.
+  - Real-time broadcast notices (Info, Warning, Maintenance, Critical) with target audience filters.
 
 ---
 
-### 👥 Phase 5: HRM, Staff Attendance, Roles & Sales Commission
-- Employee profiles, salary structures, sales targets, and commission rates.
-- Daily attendance tracker (Present, Absent, Late) with date selector.
-- Role-based permissions (Super Admin, Store Owner, Manager, Cashier).
+### ⏳ Phase 5: HRM, Staff Attendance, Roles & Sales Commission (Next Phase)
+- **Employee Directory & Staff Profiles:**
+  - Name, photo, designation, phone, NID/Passport, emergency contact, basic salary, joining date.
+- **Daily Attendance Clock-In/Clock-Out Tracker:**
+  - Present, Absent, Late, Half-day, and Leave tracking with date filters.
+- **Role-Based Access Control (RBAC):**
+  - Super Admin, Store Owner, Outlet Manager, POS Cashier, Inventory Auditor.
+- **Sales Targets & Commission Engine:**
+  - Individual cashier sales commissions and incentive calculations.
 
 ---
 
-### 💰 Phase 6: Financial Overview, Expense Tracker & Accounts (হিসাব খাতা)
-- Cash Flow statement, Daily/Monthly P&L (Profit & Loss).
-- Category-wise Expense tracker (Shop rent, Electricity, Staff food, Transportation, Packaging).
-- Supplier / Vendor payments and purchase debit notes.
+### ⏳ Phase 6: Financial Overview, Expense Tracker & Accounts (হিসাব খাতা)
+- **Cash Flow Statement & Daily/Monthly P&L (Profit & Loss).**
+- **Category-wise Expense Tracker:**
+  - Shop rent, Electricity/utility bills, Staff meal, Transport, Packaging, Marketing.
+- **Vendor / Supplier Ledgers:**
+  - Supplier purchase orders, accounts payable, and purchase debit notes.
 
 ---
 
-### 🌐 Phase 7: Multi-Store E-Commerce Site Builder & Delivery Engine
-- Dedicated storefront for every tenant (`*.jh-imse.shop` or custom domain).
-- Live shopping cart, checkout, Cash on Delivery & bKash payment gateway.
-- Merchant order management dashboard (Pending, Processing, Shipped, Delivered).
+### ⏳ Phase 7: Multi-Store E-Commerce Site Builder & Delivery Engine
+- **Tenant E-Commerce Storefront:**
+  - Personalized online shops (`store.jh-imse.shop` or custom domain).
+- **Shopping Cart & Checkout:**
+  - Cash on Delivery, bKash checkout, and courier delivery fee calculation.
+- **Merchant Order Processing:**
+  - Status management (Pending, Accepted, Packing, Shipped, Delivered, Cancelled).
 
 ---
 
-### ⚡ Phase 8: Offline-First PWA, Mobile POS & Cloud Architecture
-- Progressive Web App (PWA) with service workers for offline POS billing during network outages.
-- Automatic background sync when connection is restored.
-- Cloud scale multi-region database replication.
+### ⏳ Phase 8: Offline-First PWA, Mobile POS & Cloud Architecture
+- **PWA Service Worker:**
+  - Offline billing capability when internet connection drops.
+  - Local IndexedDB storage and automatic cloud synchronization on reconnection.
+- **Mobile POS Experience:**
+  - Touch-optimized handheld layout for smartphone and tablet cashiers.

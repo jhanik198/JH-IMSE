@@ -13,6 +13,25 @@ export interface TenantFeatures {
   multiWarehouse: boolean;
 }
 
+export type PlanTier = 'trial' | 'starter' | 'professional' | 'enterprise';
+export type TenantStatus = 'active' | 'suspended' | 'grace_period' | 'expired';
+
+export interface TenantQuota {
+  maxBranches: number;
+  maxUsers: number;
+  maxProducts: number;
+  maxMonthlyInvoices: number;
+  storageGb: number;
+}
+
+export interface TenantUsage {
+  currentBranches: number;
+  currentUsers: number;
+  currentProducts: number;
+  currentMonthlyInvoices: number;
+  currentStorageMb: number;
+}
+
 export interface Tenant {
   id: string;
   name: string;
@@ -24,14 +43,82 @@ export interface Tenant {
   address: string;
   logo?: string;
   currency: string;
-  plan: 'starter' | 'professional' | 'enterprise';
-  status: 'active' | 'suspended';
+  plan: PlanTier;
+  status: TenantStatus;
   subscriptionExpiry: string;
   monthlyFee: number;
+  billingCycle?: 'monthly' | 'yearly';
+  licenseKey?: string;
+  tradeLicenseNo?: string;
+  taxVatNo?: string;
   customDomain?: string;
   storeNotice?: string;
+  quotas: TenantQuota;
+  usage: TenantUsage;
   features: TenantFeatures;
   createdAt: string;
+}
+
+export interface SubscriptionPackage {
+  id: string;
+  name: string;
+  tier: PlanTier;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  description: string;
+  badge?: string;
+  popular?: boolean;
+  quotas: TenantQuota;
+  includedFeatures: string[];
+}
+
+export interface SubscriptionTransaction {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  plan: PlanTier;
+  amount: number;
+  paymentMethod: 'bKash' | 'Nagad' | 'Rocket' | 'Bank Transfer' | 'Card';
+  trxId: string;
+  date: string;
+  billingCycle: 'monthly' | 'yearly';
+  status: 'paid' | 'pending' | 'failed';
+  invoiceNumber: string;
+}
+
+export interface CustomDomainRequest {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  domain: string;
+  cnameTarget: string;
+  requestedDate: string;
+  status: 'active' | 'pending' | 'rejected';
+  sslStatus: 'secured' | 'provisioning' | 'failed';
+}
+
+export interface BroadcastNotice {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'maintenance' | 'critical';
+  target: 'all' | 'pharmacy' | 'grocery' | 'electronics' | 'enterprise';
+  createdAt: string;
+  active: boolean;
+}
+
+export interface LicenseKeyItem {
+  id: string;
+  key: string;
+  tenantId: string;
+  tenantName: string;
+  plan: PlanTier;
+  durationMonths: number;
+  generatedAt: string;
+  expiresAt: string;
+  status: 'active' | 'redeemed' | 'revoked';
+  maxBranches: number;
+  maxUsers: number;
 }
 
 export interface ProductVariant {
@@ -232,6 +319,42 @@ export interface HoldCart {
   pricingType: 'retail' | 'wholesale';
 }
 
+export type LoyaltyTier = 'bronze' | 'silver' | 'gold' | 'vip';
+export type CustomerType = 'retail' | 'wholesale' | 'corporate';
+
+export interface CustomerTransaction {
+  id: string;
+  customerId: string;
+  date: string;
+  type: 'invoice' | 'payment' | 'credit_note' | 'opening_balance';
+  referenceNo: string;
+  description: string;
+  debit: number; // Increases due
+  credit: number; // Decreases due (payment or return)
+  balance: number; // Balance after this transaction
+  paymentMethod?: 'cash' | 'bkash' | 'nagad' | 'bank';
+  note?: string;
+}
+
+export interface CustomerPaymentReceipt {
+  id: string;
+  receiptNumber: string;
+  tenantId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  amount: number;
+  discount: number;
+  paymentMethod: 'cash' | 'bkash' | 'nagad' | 'bank';
+  transactionId?: string;
+  bankName?: string;
+  previousDue: number;
+  remainingDue: number;
+  date: string;
+  collectedBy: string;
+  note?: string;
+}
+
 export interface Customer {
   id: string;
   tenantId: string;
@@ -241,9 +364,17 @@ export interface Customer {
   address?: string;
   totalSpent: number;
   dueAmount: number;
+  creditLimit?: number; // e.g. 10000 (0 or undefined for no limit)
+  loyaltyTier?: LoyaltyTier;
+  customerType?: CustomerType;
   purchaseCount: number;
   lastPurchased: string;
+  notes?: string;
+  transactions?: CustomerTransaction[];
 }
+
+export type EmployeeRole = 'owner' | 'manager' | 'cashier' | 'accountant' | 'auditor' | 'sales_rep';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'half_day' | 'on_leave';
 
 export interface Employee {
   id: string;
@@ -251,12 +382,101 @@ export interface Employee {
   name: string;
   phone: string;
   email: string;
-  role: 'owner' | 'manager' | 'cashier';
-  salary: number;
+  designation?: string;
+  role: EmployeeRole;
+  warehouseId?: string;
+  nid?: string;
+  emergencyPhone?: string;
+  address?: string;
+  salary: number; // basic salary
+  allowance?: number;
+  salesTarget?: number; // Target monthly sales
   salesCommissionRate: number; // percentage
   salesThisMonth: number;
-  attendanceToday: 'present' | 'absent' | 'late';
+  attendanceToday: AttendanceStatus;
+  clockInTime?: string;
+  clockOutTime?: string;
+  status?: 'active' | 'inactive' | 'on_leave';
   joinedDate: string;
+  avatar?: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  tenantId: string;
+  employeeId: string;
+  employeeName: string;
+  designation?: string;
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+  clockIn?: string;
+  clockOut?: string;
+  workingHours?: number;
+  overtimeHours?: number;
+  notes?: string;
+}
+
+export interface RolePermission {
+  roleId: string;
+  roleName: string;
+  roleNameBn: string;
+  description: string;
+  isSystem?: boolean;
+  permissions: {
+    posBilling: boolean;
+    posDiscount: boolean;
+    posPriceOverride: boolean;
+    posHoldCart: boolean;
+    inventoryView: boolean;
+    inventoryManage: boolean;
+    stockTransfer: boolean;
+    customerView: boolean;
+    customerDueCollect: boolean;
+    customerCreditLimit: boolean;
+    sendSmsReminder: boolean;
+    quotationsManage: boolean;
+    challansManage: boolean;
+    creditNotesManage: boolean;
+    financialReports: boolean;
+    hrmManage: boolean;
+    payrollManage: boolean;
+    settingsManage: boolean;
+  };
+}
+
+export interface SalarySlip {
+  id: string;
+  slipNumber: string;
+  tenantId: string;
+  employeeId: string;
+  employeeName: string;
+  designation: string;
+  phone: string;
+  department?: string;
+  month: string;
+  payPeriod: string;
+  basicSalary: number;
+  houseRentAllowance: number;
+  conveyanceAllowance: number;
+  medicalAllowance: number;
+  salesAchieved: number;
+  salesTarget: number;
+  salesCommissionRate: number;
+  salesCommission: number;
+  overtimeHours: number;
+  overtimeRate: number;
+  overtimeAmount: number;
+  grossEarnings: number;
+  absentDays: number;
+  absentDeduction: number;
+  advanceDeduction: number;
+  providentFund: number;
+  totalDeductions: number;
+  netPayable: number;
+  paymentMethod: 'cash' | 'bkash' | 'bank';
+  paymentDate: string;
+  status: 'paid' | 'pending';
+  note?: string;
 }
 
 export interface OnlineOrder {
