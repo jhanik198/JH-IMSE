@@ -1,0 +1,6 @@
+{
+  "name": "JH IMSE - Enterprise SaaS ERP & POS",
+  "description": "JH IMSE by JH Soft Corporation. Complete Multi-Tenant B2B SaaS ERP, Inventory POS, CRM, HRM, and E-Commerce Platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
